@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roblox Verify</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom spinner animation */
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
+
+    <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg transform transition-all duration-300 hover:scale-105">
+        <h1 class="text-4xl font-extrabold text-center text-gray-800 mb-6 font-inter">
+            Roblox Verify
+        </h1>
+
+        <div class="mb-6">
+            <label for="link-input" class="block text-gray-700 text-sm font-semibold mb-2">
+                Paste your Roblox link here:
+            </label>
+            <textarea
+                id="link-input"
+                class="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none font-inter"
+                placeholder="e.g., https://www.roblox.com/games/123456789/My-Awesome-Game or bit.ly/freerobuxscam"
+                rows="4"
+            ></textarea>
+        </div>
+
+        <button
+            id="verify-button"
+            class="w-full py-3 rounded-lg text-white font-bold text-lg transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700"
+        >
+            Verify Link
+        </button>
+
+        <div id="result-display" class="hidden mt-8 p-6 rounded-xl border-2 text-gray-800 font-inter">
+            <div class="flex items-center mb-4">
+                <span id="result-icon"></span>
+                <p id="result-message" class="text-2xl font-bold"></p>
+            </div>
+
+            <h3 class="text-lg font-semibold mt-4 mb-2">Educational Tips:</h3>
+            <ul id="educational-tips" class="list-disc list-inside space-y-1 text-gray-700">
+                <!-- Tips will be injected here by JavaScript -->
+            </ul>
+
+            <a
+                id="official-roblox-link"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="hidden mt-6 inline-block bg-blue-600 text-white py-3 px-6 rounded-lg font-bold text-center transition duration-300 ease-in-out transform hover:scale-105 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+                Go to Official Roblox Page
+            </a>
+
+            <button
+                id="ai-explain-button"
+                class="hidden mt-4 w-full py-3 rounded-lg text-white font-bold text-lg transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
+            >
+                Explain with AI ✨
+            </button>
+
+            <div id="ai-explanation-section" class="hidden mt-6 p-4 bg-gray-100 rounded-lg border border-gray-200">
+                <p class="font-semibold text-gray-700 mb-2">AI Explanation:</p>
+                <div id="ai-explanation-content" class="text-gray-800">
+                    <!-- AI explanation will be injected here -->
+                </div>
+                <div id="ai-explanation-loading" class="hidden flex items-center justify-center mt-2">
+                    <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Generating explanation...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get DOM elements
+        const linkInput = document.getElementById('link-input');
+        const verifyButton = document.getElementById('verify-button');
+        const resultDisplay = document.getElementById('result-display');
+        const resultIcon = document.getElementById('result-icon');
+        const resultMessage = document.getElementById('result-message');
+        const educationalTipsList = document.getElementById('educational-tips');
+        const officialRobloxLink = document.getElementById('official-roblox-link');
+        const aiExplainButton = document.getElementById('ai-explain-button');
+        const aiExplanationSection = document.getElementById('ai-explanation-section');
+        const aiExplanationContent = document.getElementById('ai-explanation-content');
+        const aiExplanationLoading = document.getElementById('ai-explanation-loading');
+
+        // Gemini API configuration
+        const apiKey = ""; // Canvas will automatically provide the API key at runtime
+        const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=" + apiKey;
+
+        // Variables to store the last verification result for AI explanation
+        let lastVerificationIsSafe = null;
+        let lastVerifiedLink = '';
+
+        // Hardcoded list of known safe domains/patterns.
+        const safeDomains = [
+            'roblox.com',       // Root domain
+            'www.roblox.com',   // Common official subdomain
+            'web.roblox.com',   // Specifically requested safe subdomain
+        ];
+
+        // Hardcoded list of known scam link patterns for demonstration
+        const scamPatterns = [
+            'free-robux',
+            'getrobux',
+            'roblox-rewards',
+            'giftcards.ru',
+            'discord.com/nitro-free', // Example of a common phishing tactic
+            'rblx.link/free', // Example of a suspicious shortened link pattern
+        ];
+
+        // Hardcoded mapping for simulated shortened URLs
+        const shortenedUrlMap = {
+            'bit.ly/freerobuxscam': 'https://scam-site.com/free-robux',
+            'tinyurl.com/officialrblx': 'https://www.roblox.com/games/12345/official-game',
+            'rbx.gg/legit': 'https://www.roblox.com/home', // Example of a legitimate shortened link
+            'rbx.gg/scam': 'https://phishing.site/login', // Example of a scam shortened link
+        };
+
+        /**
+         * Generates educational tips based on the verification result.
+         * @param {string|null} result - The verification result ('safe', 'scam', or null).
+         * @returns {string[]} An array of educational tips.
+         */
+        const getEducationalTips = (result) => {
+            if (result === 'scam') {
+                return [
+                    '⚠️ Always double-check the URL before clicking.',
+                    '⚠️ Look for "https://" and a padlock icon in the address bar.',
+                    '⚠️ Be wary of offers that seem too good to be true, like "free Robux".',
+                    '⚠️ Never enter your Roblox password on unofficial sites.',
+                    '⚠️ Report suspicious links to Roblox support.',
+                ];
+            } else if (result === 'safe') {
+                return [
+                    '✅ Great job verifying! Staying safe online is important.',
+                    '✅ Always ensure the link starts with "https://" and is on an official Roblox domain.',
+                    '✅ Be cautious even with safe links if they were sent unexpectedly.',
+                ];
+            }
+            return [
+                '💡 Always verify links before clicking, especially if they offer "free Robux" or "exclusive items".',
+                '💡 Official Roblox links typically use "web.roblox.com" or "www.roblox.com".',
+                '💡 Shortened links (like bit.ly, tinyurl) can hide unsafe destinations. Use this tool to check them!',
+            ];
+        };
+
+        /**
+         * Calls the Gemini API with exponential backoff for retries.
+         * @param {Array} chatHistory - The chat history array for the API request.
+         * @param {number} retries - Current retry count.
+         * @param {number} delay - Current delay in milliseconds.
+         * @returns {Promise<string>} The generated text from the LLM.
+         */
+        const callGeminiAPI = async (chatHistory, retries = 0, delay = 1000) => {
+            const payload = { contents: chatHistory };
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    // Implement exponential backoff for specific HTTP status codes if needed
+                    // For now, retry on any non-OK response (common for throttling/transient errors)
+                    if (retries < 5) { // Max 5 retries
+                        await new Promise(res => setTimeout(res, delay));
+                        return callGeminiAPI(chatHistory, retries + 1, delay * 2); // Double delay
+                    } else {
+                        throw new Error(`API call failed after ${retries} retries with status: ${response.status}`);
+                    }
+                }
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    return result.candidates[0].content.parts[0].text;
+                } else {
+                    console.error('Gemini API response structure unexpected:', result);
+                    return 'Could not generate explanation.';
+                }
+            } catch (error) {
+                console.error('Error calling Gemini API:', error);
+                return 'Failed to get an AI explanation.';
+            }
+        };
+
+        /**
+         * Handles the click on the AI Explain button.
+         */
+        const handleAIExplain = async () => {
+            aiExplanationSection.classList.remove('hidden');
+            aiExplanationContent.innerHTML = ''; // Clear previous content
+            aiExplanationLoading.classList.remove('hidden'); // Show loading spinner
+            aiExplainButton.disabled = true;
+            aiExplainButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+
+            let prompt = '';
+            if (lastVerificationIsSafe === true) {
+                prompt = `The link "${lastVerifiedLink}" was verified as SAFE and leads to an official Roblox domain. Explain briefly what makes a Roblox link safe, focusing on domain authenticity and what a user should generally expect from a safe official link (e.g., direct to game, profile, official news). Keep it concise and helpful for a Roblox player.`;
+            } else if (lastVerificationIsSafe === false) {
+                prompt = `The link "${lastVerifiedLink}" was verified as a SCAM or potentially unsafe. Explain briefly why this type of link is dangerous for a Roblox player, mentioning common scam tactics like free Robux promises, phishing for credentials, and unofficial domains. Keep it concise and educational.`;
+            } else {
+                aiExplanationContent.textContent = 'Please verify a link first to get an AI explanation.';
+                aiExplanationLoading.classList.add('hidden');
+                aiExplainButton.disabled = false;
+                aiExplainButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                return;
+            }
+
+            const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+            const explanation = await callGeminiAPI(chatHistory);
+
+            aiExplanationContent.textContent = explanation;
+            aiExplanationLoading.classList.add('hidden'); // Hide loading spinner
+            aiExplainButton.disabled = false;
+            aiExplainButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+        };
+
+
+        /**
+         * Updates the UI to show a loading spinner for the main verification.
+         */
+        const showLoading = () => {
+            verifyButton.disabled = true;
+            verifyButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+            verifyButton.classList.remove('bg-gradient-to-r', 'from-green-500', 'to-teal-600', 'hover:from-green-600', 'hover:to-teal-700');
+            verifyButton.innerHTML = `
+                <div class="flex items-center justify-center">
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Verifying...
+                </div>
+            `;
+            resultDisplay.classList.add('hidden'); // Hide previous results
+            officialRobloxLink.classList.add('hidden'); // Hide official link button
+            aiExplainButton.classList.add('hidden'); // Hide AI button until verification is done
+            aiExplanationSection.classList.add('hidden'); // Hide AI explanation section
+        };
+
+        /**
+         * Updates the UI after verification is complete.
+         * @param {boolean} isSafe - True if the link is safe, false otherwise.
+         * @param {string} messageText - The message to display.
+         * @param {string} finalUrl - The final URL after expansion.
+         */
+        const hideLoading = (isSafe, messageText, finalUrl) => {
+            verifyButton.disabled = false;
+            verifyButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+            verifyButton.classList.add('bg-gradient-to-r', 'from-green-500', 'to-teal-600', 'hover:from-green-600', 'hover:to-teal-700');
+            verifyButton.innerHTML = 'Verify Link';
+
+            resultDisplay.classList.remove('hidden');
+            resultMessage.textContent = messageText;
+
+            // Set result display colors and icon
+            if (isSafe) {
+                resultDisplay.classList.remove('border-red-500', 'bg-red-50');
+                resultDisplay.classList.add('border-green-500', 'bg-green-50');
+                resultIcon.innerHTML = `
+                    <svg class="h-10 w-10 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                `;
+                officialRobloxLink.href = finalUrl;
+                officialRobloxLink.classList.remove('hidden');
+            } else {
+                resultDisplay.classList.remove('border-green-500', 'bg-green-50');
+                resultDisplay.classList.add('border-red-500', 'bg-red-50');
+                resultIcon.innerHTML = `
+                    <svg class="h-10 w-10 text-red-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                `;
+                officialRobloxLink.classList.add('hidden');
+            }
+
+            // Populate educational tips
+            educationalTipsList.innerHTML = '';
+            const tips = getEducationalTips(isSafe ? 'safe' : 'scam');
+            tips.forEach(tip => {
+                const li = document.createElement('li');
+                li.className = 'flex items-start';
+                li.innerHTML = `<span class="mr-2 text-blue-500 text-lg">›</span>${tip}`;
+                educationalTipsList.appendChild(li);
+            });
+
+            // Show AI explanation button and enable it
+            aiExplainButton.classList.remove('hidden');
+            aiExplainButton.disabled = false;
+            aiExplainButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+
+            // Store verification result for AI explanation
+            lastVerificationIsSafe = isSafe;
+            lastVerifiedLink = finalUrl;
+        };
+
+        /**
+         * Handles the main link verification process.
+         */
+        const handleVerify = async () => {
+            const normalizedLink = linkInput.value.trim().toLowerCase();
+
+            if (!normalizedLink) {
+                // Optionally provide a message if input is empty
+                return;
+            }
+
+            showLoading(); // Show loading spinner and disable button
+
+            // Simulate network delay
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            let isSafe = false;
+            let finalUrl = normalizedLink;
+            let currentMessage = '';
+
+            // 1. Simulate Shortened URL Expansion
+            for (const [short, long] of Object.entries(shortenedUrlMap)) {
+                if (normalizedLink.includes(short.toLowerCase())) {
+                    finalUrl = long;
+                    currentMessage = `Expanded shortened link to: ${finalUrl}`;
+                    break;
+                }
+            }
+
+            // 2. Check against Scam Database (simulated)
+            const isScamPatternDetected = scamPatterns.some(pattern => finalUrl.includes(pattern));
+
+            if (isScamPatternDetected) {
+                isSafe = false;
+                currentMessage = '🚨 This link contains known scam patterns. It is LIKELY A SCAM. DO NOT CLICK!';
+            } else {
+                // 3. Check if the domain is explicitly in the safeDomains list
+                try {
+                    // Prepend https:// if missing to create a valid URL object
+                    const urlToParse = finalUrl.startsWith('http://') || finalUrl.startsWith('https://') ? finalUrl : `https://${finalUrl}`;
+                    const urlObject = new URL(urlToParse);
+                    const domain = urlObject.hostname;
+
+                    // The domain must be an exact match to one of the safeDomains.
+                    isSafe = safeDomains.includes(domain);
+
+                    if (isSafe) {
+                        currentMessage = '✅ This link appears to be SAFE and leads to an official Roblox domain!';
+                    } else {
+                        currentMessage = '⚠️ This link does NOT appear to be an official Roblox domain. Exercise extreme caution!';
+                    }
+                } catch (error) {
+                    // Handle invalid URL formats gracefully
+                    isSafe = false;
+                    currentMessage = '🚫 The provided input is not a valid URL. Please check the format.';
+                }
+            }
+
+            hideLoading(isSafe, currentMessage, finalUrl); // Hide loading and update UI with results
+        };
+
+        // Add event listeners
+        verifyButton.addEventListener('click', handleVerify);
+        aiExplainButton.addEventListener('click', handleAIExplain);
+
+        // Enable/disable button based on input content
+        linkInput.addEventListener('input', () => {
+            verifyButton.disabled = linkInput.value.trim() === '';
+            if (verifyButton.disabled) {
+                verifyButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+                verifyButton.classList.remove('bg-gradient-to-r', 'from-green-500', 'to-teal-600', 'hover:from-green-600', 'hover:to-teal-700');
+            } else {
+                verifyButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                verifyButton.classList.add('bg-gradient-to-r', 'from-green-500', 'to-teal-600', 'hover:from-green-600', 'hover:to-teal-700');
+            }
+        });
+
+        // Initialize button state on load
+        document.addEventListener('DOMContentLoaded', () => {
+            linkInput.value = ''; // Clear input on load
+            verifyButton.disabled = true; // Disable button initially
+            verifyButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+            aiExplainButton.classList.add('hidden'); // Ensure AI button is hidden on load
+            aiExplanationSection.classList.add('hidden'); // Ensure AI explanation section is hidden on load
+        });
+    </script>
+</body>
+</html>
